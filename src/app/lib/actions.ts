@@ -5,13 +5,12 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { connectDb } from './db';
 import User from '@/models/user';
-import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation';
 import { UserType } from './definitions';
-import { getTokenData } from './utils';
-import { Session } from 'next-auth';
+import { AuthError } from 'next-auth';
+import { signIn, signOut } from '../../auth';
+import { getUser } from './data';
 
 cloudinary.v2.config({
   cloud_name: 'dpmlgj0rm',
@@ -29,8 +28,25 @@ const FormSchema = z.object({
   password: z.string().min(6).optional()
 })
 
-export const updateInfo = async (formData: FormData) => {
-  connectDb()
+export const authenticate = async (prevState: string | undefined, formData: FormData) => {
+  try {
+    await signIn('credentials', formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      switch (error.type) {
+        case 'CredentialsSignin':
+          console.log('Invalid credentials.');
+          return 'Invalid credentials.';
+        default:
+          console.log('Something went wrong.');
+          return 'Something went wrong.';
+      }
+    }
+    throw error;
+  }
+}
+export const updateInfo = async (prevState: string | undefined, formData: FormData) => {
+  await connectDb()
 
   const formDataObject = Object.fromEntries(
     Object.entries(
@@ -41,21 +57,19 @@ export const updateInfo = async (formData: FormData) => {
   const validatedFields = FormSchema.safeParse(formDataObject)
 
   if (!validatedFields.success) {
-    console.log(validatedFields.error.flatten().fieldErrors);
-    
     return 'Missing fields. Failed to update user'
   }
 
   const { data } = validatedFields
   const verifyEmail = await User.findOne({ email: data.email })
-  const userId = getTokenData()
+  const { id } = await getUser()
 
-  if (verifyEmail && verifyEmail.id != userId) {
+  if (verifyEmail && verifyEmail.id != id) {
     return 'Email already in use'
   }
 
   try {
-    await User.findByIdAndUpdate(userId, data)
+    await User.findByIdAndUpdate(id, data)
   } catch (error: any) {
     return 'Database error. Failed to update user'
   }
@@ -79,10 +93,10 @@ export const uploadImage = async (formData: FormData) => {
   return response
 }
 
-const CreateUser = FormSchema.pick({ email: true, password: true, photo: true, name: true })
+const CreateUser = FormSchema.pick({ email: true }).extend({ password: z.string().min(6) })
 
 export const createUser = async (prevState: string | undefined, formData: FormData) => {
-  connectDb()
+  await connectDb()
   
   const validatedFields = CreateUser.safeParse(Object.fromEntries(formData))
   
@@ -97,12 +111,9 @@ export const createUser = async (prevState: string | undefined, formData: FormDa
     return 'There is already a user with that email'
   }
 
-  const newUser: UserType = { ...data, password: null }
-  
-  if (data.password){
-    const passwordHash = await bcrypt.hash(data.password!, 10)
-    newUser.password = passwordHash
-  } 
+  const newUser: Omit<UserType, 'id'> = { ...data }
+  const passwordHash = await bcrypt.hash(data.password!, 10)
+  newUser.password = passwordHash
   
   try {
     await User.create(newUser)
@@ -112,68 +123,3 @@ export const createUser = async (prevState: string | undefined, formData: FormDa
 
   redirect('/login')
 }
-
-const LogIn = FormSchema.pick({ email: true, password: true })
-
-export const logIn = async (prevState: string | undefined, formData: FormData) => {
-  connectDb()
-
-  const validatedFields = LogIn.safeParse(Object.fromEntries(formData))
-  
-  if (!validatedFields.success) {
-    return 'Invalid credentials'
-  }
-  
-  const { data } = validatedFields
-  const user = await User.findOne({ email: data.email })
-  let validPassword = true
-
-  if (data.password) {
-    validPassword = await bcrypt.compare(data.password!, user.password)
-  }
-  
-  if (!validPassword || !user) {
-    return 'Invalid credentials'
-  }
-  
-  const tokenData = {
-    id: user.id,
-  }
-
-  const token = await jwt.sign(tokenData, process.env.JWT_SECRET!)
-  cookies().set("token", token, { httpOnly: true })
-  redirect('/')
-}
-
-export const logInWithProvider = async (session: Session) => {
-  connectDb()
-  
-  const { email, image, name }: any = session.user
-  const formData = new FormData()
-  formData.append('email', email)
-
-  const user = await User.findOne({ email })
-
-  if (user) {
-    await logIn(undefined, formData)
-    return
-  }
-
-  formData.append('name', name)
-  formData.append('photo', image)
-  const createUserResponse = await createUser(undefined, formData)
-
-  if (createUserResponse) {
-    return createUserResponse
-  }
-
-  formData.delete('name')
-  formData.delete('photo')
-  const logInResponse = await logIn(undefined, formData)
-  return logInResponse
-}
-
-export const logOut = async () => {
-  cookies().set('token', '', { httpOnly: true, expires: new Date(0) })
-}
-

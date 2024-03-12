@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans } from "next/font/google";
 import "./globals.css";
-import Providers from "./providers";
 import { Toaster } from "sonner";
 
 const inter = Noto_Sans({ subsets: ["latin"] });
@@ -18,12 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <Providers>
-        <body className={inter.className}>
-          <Toaster visibleToasts={1} position="bottom-right"/>
-          {children}
-        </body>
-      </Providers>
+      <body className={inter.className}>
+        <Toaster visibleToasts={1} position="bottom-right"/>
+        {children}
+      </body>
     </html>
   );
 }

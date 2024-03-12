@@ -1,10 +1,9 @@
 import React from 'react'
 import LoginProviders from './login-providers'
 import Link from 'next/link'
-import Form from './form'
+import AuthForm from './auth-form'
 
-
-export default function AuthPage({ form }: { form: string }) {
+export default async function AuthPage({ form }: { form: string }) {
   const isRegister = form === 'register'
 
   return (
@@ -15,7 +14,7 @@ export default function AuthPage({ form }: { form: string }) {
         {isRegister ? (
           <p className="mb-3">Master web development by making real-life projects. There are multiple paths for you to choose</p>
         ) : null}
-        <Form isRegister={isRegister}/>
+        <AuthForm isRegister={isRegister}/>
         <section className="flex flex-col w-fit items-center mt-3 gap-5">
           <p className="text-sm text-[#828282]">or continue with these social profile</p>
           <LoginProviders/>

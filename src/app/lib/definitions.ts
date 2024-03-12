@@ -1,9 +1,10 @@
 export interface UserType {
+  id: string
   name?: string
   email: string
   photo?: string
   bio?: string
   phone?: string
-  password: string | null
-  [attribute: string]: string | null | undefined
+  password: string
+  [attribute: string]: string | undefined
 }

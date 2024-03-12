@@ -1,19 +1,23 @@
-import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import NextAuth from 'next-auth';
+import { authConfig } from './auth.config';
+import { NextResponse } from 'next/server';
  
-export function middleware(request: NextRequest) {
-  const token = cookies().get('token')
-  const path = request.nextUrl.pathname
-  const isPublicPath = path === '/login' || path === '/register'
-  
-  if (!token && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-  
-  if (token && isPublicPath) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-}
+const { auth } = NextAuth(authConfig) 
 
-export const config = { matcher: ['/', '/login', '/register'] }
+export default auth((req) => {
+  const isLoggedIn = !!req.auth
+  const { nextUrl } = req
+  const isPublicPath = ['/login', '/register'].includes(nextUrl.pathname)
+  
+  if (isPublicPath && isLoggedIn) {
+    return NextResponse.redirect(new URL('/', nextUrl))
+  }
+
+  if (!isPublicPath && !isLoggedIn) {
+    return NextResponse.redirect(new URL('/login', nextUrl))
+  }
+})
+ 
+export const config = {
+  matcher: ['/login' , '/register', '/'],
+};

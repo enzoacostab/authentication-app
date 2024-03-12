@@ -2,14 +2,9 @@ import Image from 'next/image'
 import React from 'react'
 import EditButton from './edit-button'
 import { UserType } from '@/app/lib/definitions'
+import { attributes } from '@/app/lib/data'
 
-export default function PersonalInfo({ 
-  attributes, 
-  user 
-}: { 
-  attributes: string[],
-  user: UserType
-}) {
+export default function PersonalInfo({ user }: { user?: UserType }) {
   return (
     <>
       <h1 className='text-2xl lg:text-4xl mx-auto'>Personal info</h1>

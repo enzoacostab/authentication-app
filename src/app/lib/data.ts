@@ -1,16 +1,10 @@
-import User from "@/models/user";
-import { getTokenData } from "./utils";
-import { unstable_noStore as noStore } from "next/cache";
-import { UserType } from "./definitions";
+import { auth } from "@/auth"
+import { UserType } from "./definitions"
 
-export const getUserData = async () => {
-  noStore()
-  const id: string = getTokenData()
+export const getUser = async () => {
+  const session = await auth()
+  const user: UserType | undefined = session?.user as UserType
+  return user
+}
 
-  try {
-    const user: UserType | null = await User.findById(id)
-    return user
-  } catch (error: any) {
-    console.error(error.message);
-  }
-} 
+export const attributes = ['photo', 'name', 'bio', 'phone', 'email']
